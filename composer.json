@@ -1,0 +1,31 @@
+{
+  "name": "tymfrontiers-cdn/php-mysql-database-object",
+  "description": "PHP MySQL Database Object",
+  "keywords": ["php", "mysql","database","object","tym","frontiers"],
+  "homepage": "https://github.com/tymfrontiers-cdn/php-mysql-database-object",
+  "type": "library",
+  "license": "MIT",
+  "authors": [
+      {
+          "name": "Sir Louis",
+          "email": "me@sirlouis.io",
+          "homepage": "https://sirlouis.io",
+          "role": "developer"
+      },
+      {
+          "name": "Tym Frontiers Ltd",
+          "email": "git@tymfrontiers.com",
+          "homepage": "https://tymfrontiers.com",
+          "role": "developer"
+      }
+  ],
+  "require": {
+    "php" : ">=5.3"
+  },
+  "require-dev": {},
+  "autoload": {
+      "psr-4": {
+          "TymFrontiers\\Helper\\": "src/"
+      }
+  }
+}
