@@ -36,6 +36,9 @@ trait MySQLDatabaseObject{
 		}
     return false;
 	}
+  public static function primaryKey () { return self::$_primary_key; }
+  public static function tableName () { return self::$_table_name; }
+  public static function databaseName () { return self::$_db_name; }
   public static function valExist( string $val, string $field_name='username'){
 		global $db;
     $db = ( $db instanceof \TymFrontiers\MySQLDatabase ) ? $db : (
