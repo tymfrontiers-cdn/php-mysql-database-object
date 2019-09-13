@@ -14,41 +14,33 @@ trait MySQLDatabaseObject{
 		$result_array = static::findBySql("SELECT * FROM `:db:`.`:tbl:` WHERE :pkey:='{$id}' LIMIT 1");
 		return !empty($result_array) ? array_shift($result_array) : false;
 	}
-	public static function findBySql(string $sql) {
-		global $db,$database;
-    // there must be an instance of TymFrontiers\MySQLDatabase in the name of $db or $databse on global scope
-    $db = ( $db instanceof \TymFrontiers\MySQLDatabase ) ? $db : (
-      ( $database instanceof \TymFrontiers\MySQLDatabase ) ? $database : false
-    );
-    if( !$db  ){
-      throw new \Exception('There must be an instance of TymFrontiers\MySQLDatabase in the name of \'$db\' or \'$database\' on global scope', 1);
-    }
+	public static function findBySql (string $sql) {
+    self::_checkEnv ();
+		global $database;
+
     $sql = \str_replace([':database:',':db:'],static::$_db_name,$sql);
     $sql = \str_replace([':table:',':tbl:'],static::$_table_name,$sql);
     $sql = \str_replace([':pkey:',':primary_key:'],static::$_primary_key,$sql);
 		// static::_getDbFields();
-		if( $result_set = $db->query($sql) ){
+		if( $result_set = $database->query($sql) ){
 			$object_array = [];
-			while($row = $db->fetchArray($result_set)){
+			while($row = $database->fetchArray($result_set)){
 				$object_array[] = static::_instantiate($row);
 			}
 			return $object_array;
 		}
     return false;
 	}
-  public static function primaryKey () { return self::$_primary_key; }
-  public static function tableName () { return self::$_table_name; }
-  public static function databaseName () { return self::$_db_name; }
+  public static function primaryKey () { return static::$_primary_key; }
+  public static function tableName () { return static::$_table_name; }
+  public static function databaseName () { return static::$_db_name; }
+  public static function tableFields () { return static::$_db_fields; }
   public static function valExist( string $val, string $field_name='username'){
-		global $db;
-    $db = ( $db instanceof \TymFrontiers\MySQLDatabase ) ? $db : (
-      ( $database instanceof \TymFrontiers\MySQLDatabase ) ? $database : false
-    );
-    if( !$db  ){
-      throw new \Exception('There must be an instance of TymFrontiers\MySQLDatabase in the name of \'$db\' or \'$database\' on global scope', 1);
-    }
-		$val = $db->escapeValue($val);
-		$field_name = $db->escapeValue($field_name);
+    self::_checkEnv ();
+		global $database;
+
+		$val = $database->escapeValue($val);
+		$field_name = $database->escapeValue($field_name);
 		$sql = "SELECT * FROM :db:.:tbl: ";
 		$sql .= " WHERE `{$field_name}` = '{$val}' ";
 		$sql .= "LIMIT 1";
@@ -56,18 +48,12 @@ trait MySQLDatabaseObject{
 		return !empty($result_array);
 	}
   public static function 	countAll(){
-    global $db,$database;
-    // there must be an instance of \TymFrontiers\MySQLDatabase in the name of $db or $databse on global scope
-    $db = ($db instanceof \TymFrontiers\MySQLDatabase) ? $db : (
-      ($database instanceof \TymFrontiers\MySQLDatabase) ? $database : false
-    );
-    if( !$db  ){
-      static::$errors['countAll'][] = [3,256,'There must be an instance of TymFrontiers\MySQLDatabase in the name of \'$db\' or \'$databse\' on global scope',__FILE__,__LINE__];
-      return false;
-    }
+    self::_checkEnv ();
+    global $database;
+
 		$sql = "SELECT COUNT(*) FROM `".static::$_db_name."`.`".static::$_table_name."`";
-		$resultSet = $db->query($sql);
-		$row = $db->fetchArray($resultSet);
+		$resultSet = $database->query($sql);
+		$row = $database->fetchArray($resultSet);
 		return array_shift($row);
 	}
   public function save(){
@@ -75,21 +61,16 @@ trait MySQLDatabaseObject{
     return !empty( $this->$pkey ) ? $this->_update() : $this->_create();
   }
   public function delete(){
-    global $db,$database;
-    // there must be an instance of \TymFrontiers\MySQLDatabase in the name of $db or $databse on global scope
-    $db = ($db instanceof \TymFrontiers\MySQLDatabase) ? $db : (
-      ($database instanceof \TymFrontiers\MySQLDatabase) ? $database : false
-    );
-    if( !$db  ){
-      $this->errors['delete'][] = [3,256,'There must be an instance of TymFrontiers\MySQLDatabase in the name of \'$db\' or \'$databse\' on global scope',__FILE__,__LINE__];
-      return false;
-    }
+    self::_checkEnv ();
+    global $database;
+    // there must be an instance of \TymFrontiers\MySQLDatabase in the name of $database or $database on global scope
+
     $pkey = static::$_primary_key;
 		$sql = "DELETE FROM `".static::$_db_name."`.`".static::$_table_name."`";
-		$sql .= " WHERE {$pkey} = '{$db->escapeValue($this->$pkey)}' ";
+		$sql .= " WHERE {$pkey} = '{$database->escapeValue($this->$pkey)}' ";
 		$sql .= " LIMIT 1";
-		if( $db->query($sql) ){
-      return ($db->affectedRows() == 1) ? true : false;
+		if( $database->query($sql) ){
+      return ($database->affectedRows() == 1) ? true : false;
     }else{
       $this->mergeErrors();
     }
@@ -97,42 +78,38 @@ trait MySQLDatabaseObject{
   public function setProp (string $prop, $val) {
     if (\property_exists($this,$prop) ) $this->$prop = $val;
   }
-	public function nextAutoIncrement(){
-    global $db,$database;
-    // there must be an instance of \TymFrontiers\MySQLDatabase in the name of $db or $databse on global scope
-    $db = ($db instanceof \TymFrontiers\MySQLDatabase) ? $db : (
-      ($database instanceof \TymFrontiers\MySQLDatabase) ? $database : false
-    );
-    if( !$db  ){
-      $this->errors['nextAutoIncrement'][] = [3,256,'There must be an instance of TymFrontiers\MySQLDatabase in the name of \'$db\' or \'$databse\' on global scope',__FILE__,__LINE__];
-      return false;
-    }
-    $dbname = !empty( static::$_db_name) ? static::$_db_name : $db->getDBname();
+	public function nextAutoIncrement () {
+    self::_checkEnv ();
+    global $database;
+
+    $database_name = !empty( static::$_db_name)
+      ? static::$_db_name
+      : $database->getDBname();
     $tblname = static::$_table_name;
-    if( empty($dbname) ){
+    if( empty($database_name) ){
       $this->errors['nextAutoIncrement'][] = [3,256,'Database name not set',__FILE__,__LINE__];
       return false;
     }
 		$sql = "SELECT `AUTO_INCREMENT` ";
 		$sql .= "FROM  INFORMATION_SCHEMA.TABLES ";
-		$sql .= "WHERE TABLE_SCHEMA ='{$dbname}' ";
+		$sql .= "WHERE TABLE_SCHEMA ='{$database_name}' ";
 		$sql .= "AND   TABLE_NAME   = '{$tblname}' ";
-		$resultSet = $db->query($sql);
+		$resultSet = $database->query($sql);
     if( $resultSet ){
-      $row = $db->fetchArray($resultSet);
-      return !empty($row) ? array_shift($row) : false;
+      $row = $database->fetchArray($resultSet);
+      return !empty($row) ? \array_shift($row) : false;
     }else{
       $this->mergeErrors();
     }
     return false;
 	}
-	public function created(){ return property_exists(__CLASS__,'_created') ? $this->_created : null; }
-	public function updated(){ return property_exists(__CLASS__,'_updated') ? $this->_updated : null; }
-	public function author(){ return property_exists(__CLASS__,'_author') ? $this->_author : null; }
+	public function created () { return property_exists(__CLASS__,'_created') ? $this->_created : null; }
+	public function updated () { return property_exists(__CLASS__,'_updated') ? $this->_updated : null; }
+	public function author () { return property_exists(__CLASS__,'_author') ? $this->_author : null; }
 
   // private/protected methods
-  public function isEmpty(string $prop, $value) {
-    if( empty(static::$_prop_type) ) $this->_getFieldInfo();
+  public function isEmpty (string $prop, $value) {
+    if( empty(static::$_prop_type) ) $this->_getFieldInfo ();
     if (\array_key_exists($prop,static::$_prop_type)) {
       switch ($prop) {
         case \in_array(\strtoupper(static::$_prop_type[$prop]),["BIT","TINYINT","BOOLEAN","SMALLINT","MEDIUMINT","INT","INTEGER","BIGINT"]):
@@ -153,12 +130,12 @@ trait MySQLDatabaseObject{
       }
     }
   }
-  private static function _instantiate($record){
+  private static function _instantiate ($record) {
     $class_name = \get_called_class();
 		// $object = new $class_name();
-		$object = new $class_name(static::$_db_name,static::$_table_name,static::$_primary_key);
-		foreach($record as $attribute=>$value){
-      if( !\is_int($attribute) ){
+		$object = new $class_name (static::$_db_name,static::$_table_name,static::$_primary_key);
+		foreach ($record as $attribute=>$value) {
+      if ( !\is_int($attribute) ) {
         $object->$attribute = $value;
       }
 			// if($object->_hasAttribute($attribute)){
@@ -166,56 +143,44 @@ trait MySQLDatabaseObject{
 		}
 		return $object;
 	}
-	protected function _getDbFields() {
-    global $db,$database;
-    // there must be an instance of TymFrontiers\MySQLDatabase in the name of $db or $databse on global scope
-    $db = ($db instanceof \TymFrontiers\MySQLDatabase) ? $db : (
-      ($database instanceof \TymFrontiers\MySQLDatabase) ? $database : false
-    );
-    if( !$db  ){
-      $this->errors['_getDbFields'][] = [3,256,'There must be an instance of TymFrontiers\MySQLDatabase in the name of \'$db\' or \'$databse\' on global scope',__FILE__,__LINE__];
-      return false;
-    }
-    $result = $db->query("SHOW COLUMNS FROM `".static::$_db_name."`.`".static::$_table_name."`");
+	protected function _getDbFields () {
+    self::_checkEnv ();
+    global $database;
+
+    $result = $database->query("SHOW COLUMNS FROM `".static::$_db_name."`.`".static::$_table_name."`");
     if( !$result ) $this->mergeErrors();
-	  $fieldnames = [];
-    if ($db->numRows($result) > 0) {
-      while ($row = $db->fetchAssocArray($result)) {
-        $fieldnames[] = $row['Field'];
+	  $field_names = [];
+    if ($database->numRows($result) > 0) {
+      while ($row = $database->fetchAssocArray($result)) {
+        $field_names[] = $row['Field'];
       }
     }
-		foreach ($fieldnames as $prop) {
+		foreach ($field_names as $prop) {
 			if( empty($this->$prop) ){
 				$this->$prop = null;
 			}
 		}
-    static::$_db_fields = $fieldnames;
+    static::$_db_fields = $field_names;
 	}
-	public function _getFieldInfo() {
-    global $db,$database;
-    // there must be an instance of TymFrontiers\MySQLDatabase in the name of $db or $databse on global scope
-    $db = ($db instanceof \TymFrontiers\MySQLDatabase) ? $db : (
-      ($database instanceof \TymFrontiers\MySQLDatabase) ? $database : false
-    );
-    if( !$db  ){
-      $this->errors['_getFieldInfo'][] = [3,256,'There must be an instance of TymFrontiers\MySQLDatabase in the name of \'$db\' or \'$databse\' on global scope',__FILE__,__LINE__];
-      return false;
-    }
-    $result = $db->query("SELECT COLUMN_NAME AS prop, DATA_TYPE AS type, CHARACTER_MAXIMUM_LENGTH AS size FROM INFORMATION_SCHEMA.COLUMNS
+	public function _getFieldInfo () {
+    self::_checkEnv ();
+    global $database;
+
+    $result = $database->query("SELECT COLUMN_NAME AS prop, DATA_TYPE AS type, CHARACTER_MAXIMUM_LENGTH AS size FROM INFORMATION_SCHEMA.COLUMNS
   WHERE table_name = '".static::$_table_name."'");
     if( !$result ) $this->mergeErrors();
-    if ($db->numRows($result) > 0) {
-      while ($row = $db->fetchAssocArray($result)) {
+    if ($database->numRows($result) > 0) {
+      while ($row = $database->fetchAssocArray($result)) {
         static::$_prop_type[$row['prop']] = $row['type'];
         static::$_prop_size[$row['prop']] = (int)$row['size'];
       }
     }
 	}
-  private function _hasAttribute($attribute) {
+  private function _hasAttribute ($attribute) {
 		$object_vars = $this->_attributes();
 		return \array_key_exists($attribute, $object_vars);
 	}
-	protected function _attributes(){
+	protected function _attributes () {
 		$attributes = [];
 		// $this->_getDbFields();
 		if( empty(static::$_db_fields) ){ $this->_getDbFields();}
@@ -226,37 +191,25 @@ trait MySQLDatabaseObject{
 		}
 		return $attributes;
 	}
-	protected function _sanitizedAttributes(){
-    global $db,$database;
-    // there must be an instance of TymFrontiers\MySQLDatabase in the name of $db or $databse on global scope
-    $db = ($db instanceof \TymFrontiers\MySQLDatabase) ? $db : (
-      ($database instanceof \TymFrontiers\MySQLDatabase) ? $database : false
-    );
-    if( !$db  ){
-      $this->errors['_sanitizedAttributes'][] = [3,256,'There must be an instance of TymFrontiers\MySQLDatabase in the name of \'$db\' or \'$databse\' on global scope',__FILE__,__LINE__];
-      return false;
-    }
+	protected function _sanitizedAttributes () {
+    self::_checkEnv ();
+    global $database;
+
     $clean_attributs = [];
     if (empty(static::$_prop_type)) $this->_getFieldInfo();
 		foreach ($this->_attributes() as $key => $value) {
       if (\in_array(\strtoupper(static::$_prop_type[$key]),["BIT", "TINYINT", "BOOLEAN", "SMALLINT"]) && (int)$value < 1) {
         $clean_attributs[$key] = (bool)$value ? 1 : 0;
       } else {
-        $clean_attributs[$key] = $db->escapeValue($value);
+        $clean_attributs[$key] = $database->escapeValue($value);
       }
 		}
 		return $clean_attributs;
 	}
-	protected function _create(){
-    global $db,$database,$session;
-    // there must be an instance of TymFrontiers\MySQLDatabase in the name of $db or $databse on global scope
-    $db = ($db instanceof \TymFrontiers\MySQLDatabase) ? $db : (
-      ($database instanceof \TymFrontiers\MySQLDatabase) ? $database : false
-    );
-    if( !$db  ){
-      $this->errors['_create'][] = [3,256,'There must be an instance of TymFrontiers\MySQLDatabase in the name of \'$db\' or \'$databse\' on global scope',__FILE__,__LINE__];
-      return false;
-    }
+	protected function _create () {
+    self::_checkEnv ();
+    global $database, $session;
+
 		if( property_exists(__CLASS__, '_created'))	$this->_created = strftime("%Y-%m-%d %H:%M:%S",time());
 		if( property_exists(__CLASS__, '_updated'))	$this->_updated = strftime("%Y-%m-%d %H:%M:%S",time());
 		if( property_exists(__CLASS__, '_author')){
@@ -266,7 +219,7 @@ trait MySQLDatabaseObject{
       }
       $this->_author = $session->name;
     }
-		$attributes = $this->_sanitizedAttributes();
+		$attributes = $this->_sanitizedAttributes ();
     foreach ($attributes as $key => $value) {
       if( $this->isEmpty($key,$value) ) unset($attributes[$key]);
     }
@@ -275,8 +228,8 @@ trait MySQLDatabaseObject{
 		$sql .= ") VALUES ('";
 		$sql .= join("', '", array_values($attributes));
 		$sql .= "')";
-		if( $db->query($sql) ){
-			if( \property_exists(__CLASS__,'id') ) $this->id = $db->insertId();
+		if( $database->query($sql) ){
+			if( \property_exists(__CLASS__,'id') ) $this->id = $database->insertId();
 			return true;
 		}else{
       $this->mergeErrors();
@@ -284,15 +237,9 @@ trait MySQLDatabaseObject{
 		}
 	}
 	protected function _update(){
-    global $db,$database,$session;
-    // there must be an instance of \TymFrontiers\MySQLDatabase in the name of $db or $databse on global scope
-    $db = ($db instanceof \TymFrontiers\MySQLDatabase) ? $db : (
-      ($database instanceof \TymFrontiers\MySQLDatabase) ? $database : false
-    );
-    if( !$db  ){
-      $this->errors['_update'][] = [3,256,'There must be an instance of TymFrontiers\MySQLDatabase in the name of \'$db\' or \'$databse\' on global scope',__FILE__,__LINE__];
-      return false;
-    }
+    self::_checkEnv ();
+    global $database,$session;
+
 		if( \property_exists(__CLASS__,'_updated') ){ $this->_updated = strftime("%Y-%m-%d %H:%M:%S",time()); }
     $pkey = static::$_primary_key;
 		$attributes = $this->_sanitizedAttributes();
@@ -302,26 +249,28 @@ trait MySQLDatabaseObject{
 		}
 		$sql = "UPDATE `".static::$_db_name."`.`".static::$_table_name."` SET ";
 		$sql .= join(", ",$attribute_pairs);
-		$sql .= " WHERE {$pkey} = '{$db->escapeValue($this->$pkey)}' ";
-		if( $db->query($sql) ){
+		$sql .= " WHERE {$pkey} = '{$database->escapeValue($this->$pkey)}' ";
+		if( $database->query($sql) ){
       // return true;
-      return ($db->affectedRows() == 1) ? true : 0;
+      return ($database->affectedRows() == 1) ? true : 0;
     }else{
       $this->mergeErrors();
       return false;
     }
 	}
   public function mergeErrors(){
-    global $db;
-    $errors = (new InstanceError($db,true))->get('query');
+    self::_checkEnv ();
+    global $database;
+
+    $errors = (new InstanceError($database,true))->get('query');
     if( $errors ){
-      if( isset($db->errors['query']) ) unset($db->errors['query']);
+      if( isset($database->errors['query']) ) unset($database->errors['query']);
       foreach($errors as $err){
         $this->errors['query'][] = $err;
       }
     }
   }
-  protected function _listMoreErrors(string $method='Self', object $instance, string $ins_method=''){
+  protected function _listMoreErrors(string $method='self', object $instance, string $ins_method=''){
     if( !empty($instance->errors) ){
       $errors = (new InstanceError($instance,true))->get($ins_method);
       if( $errors ){
@@ -331,4 +280,20 @@ trait MySQLDatabaseObject{
       }
     }
   }
+  private static function _checkEnv(){
+    global $database;
+    if ( !$database instanceof \TymFrontiers\MySQLDatabase ) {
+      if(
+        !\defined("MYSQL_BASE_DB") ||
+        !\defined("MYSQL_SERVER") ||
+        !\defined("MYSQL_GUEST_USERNAME") ||
+        !\defined("MYSQL_GUEST_PASS")
+      ){
+        throw new \Exception("Required defination(s)[MYSQL_BASE_DB, MYSQL_SERVER, MYSQL_GUEST_USERNAME, MYSQL_GUEST_PASS] not [correctly] defined.", 1);
+      }
+      // check if guest is logged in
+      $_GLOBAL['database'] = new \TymFrontiers\MySQLDatabase(MYSQL_SERVER,MYSQL_GUEST_USERNAME,MYSQL_GUEST_PASS,self::$_db_name);
+    }
+  }
+
 }
