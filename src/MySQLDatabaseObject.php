@@ -182,8 +182,8 @@ trait MySQLDatabaseObject{
 	}
 	protected function _attributes () {
 		$attributes = [];
-		// $this->_getDbFields();
-		if( empty(static::$_db_fields) ){ $this->_getDbFields();}
+		$this->_getDbFields();
+		// if( empty(static::$_db_fields) ){ $this->_getDbFields();}
 		foreach (static::$_db_fields as $field) {
 			if(property_exists($this, $field)){
 				$attributes[$field] = $this->$field;
