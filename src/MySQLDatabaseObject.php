@@ -4,8 +4,6 @@ namespace TymFrontiers\Helper;
 use \TymFrontiers\InstanceError;
 
 trait MySQLDatabaseObject{
-  protected static $_prop_type = [];
-  protected static $_prop_size = [];
 
   public static function findAll(){
     return static::findBySql("SELECT * FROM `:db:`.`:tbl:`");
@@ -163,7 +161,7 @@ trait MySQLDatabaseObject{
     static::$_db_fields = $field_names;
 	}
 	public function _getFieldInfo () {
-    self::_checkEnv ();
+    static::_checkEnv ();
     global $database;
 
     $result = $database->query("SELECT COLUMN_NAME AS prop, DATA_TYPE AS type, CHARACTER_MAXIMUM_LENGTH AS size FROM INFORMATION_SCHEMA.COLUMNS
@@ -182,8 +180,8 @@ trait MySQLDatabaseObject{
 	}
 	protected function _attributes () {
 		$attributes = [];
-		$this->_getDbFields();
-		// if( empty(static::$_db_fields) ){ $this->_getDbFields();}
+		// $this->_getDbFields();
+		if( empty(static::$_db_fields) ){ $this->_getDbFields();}
 		foreach (static::$_db_fields as $field) {
 			if(property_exists($this, $field)){
 				$attributes[$field] = $this->$field;
@@ -196,7 +194,7 @@ trait MySQLDatabaseObject{
     global $database;
 
     $clean_attributs = [];
-    if (empty(static::$_prop_type)) $this->_getFieldInfo();
+    $this->_getFieldInfo();
 		foreach ($this->_attributes() as $key => $value) {
       if (\in_array(\strtoupper(static::$_prop_type[$key]),["BIT", "TINYINT", "BOOLEAN", "SMALLINT"]) && (int)$value < 1) {
         $clean_attributs[$key] = (bool)$value ? 1 : 0;
