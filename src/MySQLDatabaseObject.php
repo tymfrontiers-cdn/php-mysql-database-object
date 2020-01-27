@@ -58,19 +58,22 @@ trait MySQLDatabaseObject{
     $pkey = static::$_primary_key;
     return !empty( $this->$pkey ) ? $this->_update() : $this->_create();
   }
-  public function delete(){
-    self::_checkEnv ();
-    global $database;
+  public function delete($conn = false){
+    if (!$conn instanceof \TymFrontiers\MySQLDatabase) {
+      self::_checkEnv ();
+      global $database;
+      $conn =& $database;
+    }
     // there must be an instance of \TymFrontiers\MySQLDatabase in the name of $database or $database on global scope
 
     $pkey = static::$_primary_key;
 		$sql = "DELETE FROM `".static::$_db_name."`.`".static::$_table_name."`";
-		$sql .= " WHERE {$pkey} = '{$database->escapeValue($this->$pkey)}' ";
+		$sql .= " WHERE {$pkey} = '{$conn->escapeValue($this->$pkey)}' ";
 		$sql .= " LIMIT 1";
-		if( $database->query($sql) ){
-      return ($database->affectedRows() == 1) ? true : false;
+		if( $conn->query($sql) ){
+      return ($conn->affectedRows() == 1) ? true : false;
     }else{
-      $this->mergeErrors();
+      $this->mergeErrors($conn);
     }
 	}
   public function setProp (string $prop, $val) {
@@ -204,13 +207,17 @@ trait MySQLDatabaseObject{
 		}
 		return $clean_attributs;
 	}
-	protected function _create () {
-    self::_checkEnv ();
-    global $database, $session;
+	protected function _create ($conn = false) {
+    if (!$conn instanceof \TymFrontiers\MySQLDatabase) {
+      self::_checkEnv ();
+      global $database;
+      $conn =& $database;
+    }
+    global $session;
 
-		if( property_exists(__CLASS__, '_created'))	$this->_created = strftime("%Y-%m-%d %H:%M:%S",time());
-		if( property_exists(__CLASS__, '_updated'))	$this->_updated = strftime("%Y-%m-%d %H:%M:%S",time());
-		if( property_exists(__CLASS__, '_author')){
+		if( \property_exists(__CLASS__, '_created'))	$this->_created = strftime("%Y-%m-%d %H:%M:%S",time());
+		if( \property_exists(__CLASS__, '_updated'))	$this->_updated = strftime("%Y-%m-%d %H:%M:%S",time());
+		if( \property_exists(__CLASS__, '_author')){
       if( !($session instanceof \TymFrontiers\Session) ){
         $this->errors['_create'][] = [3,256,'There must be an instance of TymFrontiers\Session in the name of \'$session\' on global scope',__FILE__,__LINE__];
         return false;
@@ -226,17 +233,20 @@ trait MySQLDatabaseObject{
 		$sql .= ") VALUES ('";
 		$sql .= join("', '", array_values($attributes));
 		$sql .= "')";
-		if( $database->query($sql) ){
-			if( \property_exists(__CLASS__,'id') ) $this->id = $database->insertId();
+		if( $conn->query($sql) ){
+			if( \property_exists(__CLASS__,'id') ) $this->id = $conn->insertId();
 			return true;
 		}else{
-      $this->mergeErrors();
+      $this->mergeErrors($conn);
 			return false;
 		}
 	}
-	protected function _update(){
-    self::_checkEnv ();
-    global $database,$session;
+	protected function _update($conn = false){
+    if (!$conn instanceof \TymFrontiers\MySQLDatabase) {
+      self::_checkEnv ();
+      global $database;
+      $conn =& $database;
+    }
 
 		if( \property_exists(__CLASS__,'_updated') ){ $this->_updated = strftime("%Y-%m-%d %H:%M:%S",time()); }
     $pkey = static::$_primary_key;
@@ -247,22 +257,25 @@ trait MySQLDatabaseObject{
 		}
 		$sql = "UPDATE `".static::$_db_name."`.`".static::$_table_name."` SET ";
 		$sql .= join(", ",$attribute_pairs);
-		$sql .= " WHERE {$pkey} = '{$database->escapeValue($this->$pkey)}' ";
-		if( $database->query($sql) ){
+		$sql .= " WHERE {$pkey} = '{$conn->escapeValue($this->$pkey)}' ";
+		if( $conn->query($sql) ){
       // return true;
-      return ($database->affectedRows() == 1) ? true : 0;
+      return ($conn->affectedRows() == 1) ? true : 0;
     }else{
-      $this->mergeErrors();
+      $this->mergeErrors($conn);
       return false;
     }
 	}
-  public function mergeErrors(){
-    self::_checkEnv ();
-    global $database;
+  public function mergeErrors($conn = false){
+    if (!$conn instanceof \TymFrontiers\MySQLDatabase) {
+      self::_checkEnv ();
+      global $database;
+      $conn =& $database;
+    }
 
-    $errors = (new InstanceError($database,true))->get('query');
+    $errors = (new InstanceError($conn,true))->get('query');
     if( $errors ){
-      if( isset($database->errors['query']) ) unset($database->errors['query']);
+      if( isset($conn->errors['query']) ) unset($conn->errors['query']);
       foreach($errors as $err){
         $this->errors['query'][] = $err;
       }
@@ -290,7 +303,7 @@ trait MySQLDatabaseObject{
         throw new \Exception("Required defination(s)[MYSQL_BASE_DB, MYSQL_SERVER, MYSQL_GUEST_USERNAME, MYSQL_GUEST_PASS] not [correctly] defined.", 1);
       }
       // check if guest is logged in
-      $_GLOBAL['database'] = new \TymFrontiers\MySQLDatabase(MYSQL_SERVER,MYSQL_GUEST_USERNAME,MYSQL_GUEST_PASS,self::$_db_name);
+      $GLOBALS['database'] = new \TymFrontiers\MySQLDatabase(MYSQL_SERVER, MYSQL_GUEST_USERNAME, MYSQL_GUEST_PASS, self::$_db_name);
     }
   }
 
