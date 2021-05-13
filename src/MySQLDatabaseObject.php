@@ -281,7 +281,7 @@ trait MySQLDatabaseObject{
       }
     }
   }
-  protected function _listMoreErrors(string $method='self', object $instance, string $ins_method=''){
+  protected function _listMoreErrors(string $method, object $instance, string $ins_method=''){
     if( !empty($instance->errors) ){
       $errors = (new InstanceError($instance,true))->get($ins_method);
       if( $errors ){
