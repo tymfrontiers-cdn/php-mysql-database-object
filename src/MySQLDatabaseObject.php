@@ -253,7 +253,9 @@ trait MySQLDatabaseObject{
 		$attributes = $this->_sanitizedAttributes();
 		$attribute_pairs = [];
 		foreach ($attributes as $key => $value) {
-      $attribute_pairs[] = "`{$key}`='{$value}'";
+      $attribute_pairs[] = !\in_array(\strtoupper(static::$_prop_type[$key]),['DATE','DATETIME','TIMESTAMP','TIME','YEAR'])
+      ? "`{$key}`='{$value}'"
+      : "`{$key}`=". (!empty($value) ? "'{$value}'" : "NULL");
 		}
 		$sql = "UPDATE `".static::$_db_name."`.`".static::$_table_name."` SET ";
 		$sql .= join(", ",$attribute_pairs);
