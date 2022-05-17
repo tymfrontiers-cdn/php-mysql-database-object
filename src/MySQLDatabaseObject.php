@@ -215,9 +215,15 @@ trait MySQLDatabaseObject{
     }
     global $session;
 
+<<<<<<< Updated upstream
 		if( \property_exists(__CLASS__, '_created'))	$this->_created = strftime("%Y-%m-%d %H:%M:%S",time());
 		if( \property_exists(__CLASS__, '_updated'))	$this->_updated = strftime("%Y-%m-%d %H:%M:%S",time());
 		if( \property_exists(__CLASS__, '_author') && empty($this->_author) ){
+=======
+		if( property_exists(__CLASS__, '_created'))	$this->_created = \date("Y-m-d H:i:s",time());
+		if( property_exists(__CLASS__, '_updated'))	$this->_updated = \date("Y-m-d H:i:s",time());
+		if( property_exists(__CLASS__, '_author')){
+>>>>>>> Stashed changes
       if( !($session instanceof \TymFrontiers\Session) ){
         $this->errors['_create'][] = [3,256,'There must be an instance of TymFrontiers\Session in the name of \'$session\' on global scope',__FILE__,__LINE__];
         return false;
@@ -248,7 +254,7 @@ trait MySQLDatabaseObject{
       $conn =& $database;
     }
 
-		if( \property_exists(__CLASS__,'_updated') ){ $this->_updated = strftime("%Y-%m-%d %H:%M:%S",time()); }
+		if( \property_exists(__CLASS__,'_updated') ){ $this->_updated = \date("Y-m-d H:i:s",time()); }
     $pkey = static::$_primary_key;
 		$attributes = $this->_sanitizedAttributes();
 		$attribute_pairs = [];
