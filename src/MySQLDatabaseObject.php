@@ -202,7 +202,7 @@ trait MySQLDatabaseObject{
       if (\in_array(\strtoupper(static::$_prop_type[$key]),["BIT", "TINYINT", "BOOLEAN", "SMALLINT"]) && (int)$value < 1) {
         $clean_attributs[$key] = (bool)$value ? 1 : 0;
       } else {
-        $clean_attributs[$key] = $database->escapeValue($value);
+        if (!empty($value)) $clean_attributs[$key] = $database->escapeValue($value);
       }
 		}
 		return $clean_attributs;
