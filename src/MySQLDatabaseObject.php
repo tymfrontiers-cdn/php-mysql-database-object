@@ -4,6 +4,7 @@ namespace TymFrontiers\Helper;
 use \TymFrontiers\InstanceError;
 
 trait MySQLDatabaseObject{
+  public $empty_prop = [];
 
   public static function findAll(){
     return static::findBySql("SELECT * FROM `:db:`.`:tbl:`");
@@ -168,7 +169,7 @@ trait MySQLDatabaseObject{
     global $database;
 
     $result = $database->query("SELECT COLUMN_NAME AS prop, DATA_TYPE AS type, CHARACTER_MAXIMUM_LENGTH AS size FROM INFORMATION_SCHEMA.COLUMNS
-  WHERE table_name = '".static::$_table_name."'");
+    WHERE table_name = '".static::$_table_name."'");
     if( !$result ) $this->mergeErrors();
     if ($database->numRows($result) > 0) {
       while ($row = $database->fetchAssocArray($result)) {
@@ -201,6 +202,22 @@ trait MySQLDatabaseObject{
 		foreach ($this->_attributes() as $key => $value) {
       if (\in_array(\strtoupper(static::$_prop_type[$key]),["BIT", "TINYINT", "BOOLEAN", "SMALLINT"]) && (int)$value < 1) {
         $clean_attributs[$key] = (bool)$value ? 1 : 0;
+      } else if(\in_array($key, $this->empty_prop)) {
+        // get empty type
+        if (
+          \in_array(\strtoupper(static::$_prop_type[$key]), ["BIT","TINYINT","BOOLEAN","SMALLINT","MEDIUMINT","INT","INTEGER","BIGINT", "FLOAT","DOUBLE","DECIMAL","DEC"])
+          && $this->isEmpty($key, $value)
+          ) {
+          $clean_attributs[\strtoupper(static::$_key_type[$prop])] = 0;
+        } else if(\in_array($key, ['DATE','DATETIME','TIMESTAMP','TIME','YEAR']) && $this->isEmpty($key, $value)) {
+          $clean_attributs[$key] = NULL;
+        } else {
+          if ($this->isEmpty($key, $value)) {
+            $clean_attributs[$key] = "";
+          } else {
+            $clean_attributs[$key] = $database->escapeValue($value);
+          }
+        }
       } else {
         if (!empty($value)) $clean_attributs[$key] = $database->escapeValue($value);
       }
