@@ -208,7 +208,7 @@ trait MySQLDatabaseObject{
           \in_array(\strtoupper(static::$_prop_type[$key]), ["BIT","TINYINT","BOOLEAN","SMALLINT","MEDIUMINT","INT","INTEGER","BIGINT", "FLOAT","DOUBLE","DECIMAL","DEC"])
           && $this->isEmpty($key, $value)
           ) {
-          $clean_attributs[\strtoupper(static::$_key_type[$prop])] = 0;
+          $clean_attributs[$key] = 0;
         } else if(\in_array($key, ['DATE','DATETIME','TIMESTAMP','TIME','YEAR']) && $this->isEmpty($key, $value)) {
           $clean_attributs[$key] = NULL;
         } else {
