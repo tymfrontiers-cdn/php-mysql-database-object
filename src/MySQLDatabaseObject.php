@@ -5,6 +5,7 @@ use \TymFrontiers\InstanceError;
 
 trait MySQLDatabaseObject{
   public $empty_prop = [];
+  private static $_conn = false;
 
   public static function findAll(){
     return static::findBySql("SELECT * FROM `:db:`.`:tbl:`");
@@ -13,17 +14,25 @@ trait MySQLDatabaseObject{
 		$result_array = static::findBySql("SELECT * FROM `:db:`.`:tbl:` WHERE :pkey:='{$id}' LIMIT 1");
 		return !empty($result_array) ? array_shift($result_array) : false;
 	}
+  public function setConnection (\TymFrontiers\MySQLDatabase $conn) {
+    static::$_conn = $conn;
+  }
 	public static function findBySql (string $sql) {
-    self::_checkEnv ();
-		global $database;
-
+    if (!static::$_conn) {
+      self::_checkEnv ();
+      global $database;
+      $conn =& $database;
+    } else {
+      $conn =& static::$_conn;
+    }
+    $conn = static::$_conn ? static::$_conn : $database;
     $sql = \str_replace([':database:',':db:'],static::$_db_name,$sql);
     $sql = \str_replace([':table:',':tbl:'],static::$_table_name,$sql);
     $sql = \str_replace([':pkey:',':primary_key:'],static::$_primary_key,$sql);
 		// static::_getDbFields();
-		if( $result_set = $database->query($sql) ){
+		if( $result_set = $conn->query($sql) ){
 			$object_array = [];
-			while($row = $database->fetchArray($result_set)){
+			while($row = $conn->fetchArray($result_set)){
 				$object_array[] = static::_instantiate($row);
 			}
 			return $object_array;
@@ -35,8 +44,13 @@ trait MySQLDatabaseObject{
   public static function databaseName () { return static::$_db_name; }
   public static function tableFields () { return static::$_db_fields; }
   public static function valExist( string $val, string $field_name='username'){
-    self::_checkEnv ();
-		global $database;
+    if (!static::$_conn) {
+      self::_checkEnv ();
+      global $database;
+      $conn =& $database;
+    } else {
+      $conn =& static::$_conn;
+    }
 
 		$val = $database->escapeValue($val);
 		$field_name = $database->escapeValue($field_name);
@@ -47,12 +61,17 @@ trait MySQLDatabaseObject{
 		return !empty($result_array);
 	}
   public static function 	countAll(){
-    self::_checkEnv ();
-    global $database;
+    if (!static::$_conn) {
+      self::_checkEnv ();
+      global $database;
+      $conn =& $database;
+    } else {
+      $conn =& static::$_conn;
+    }
 
 		$sql = "SELECT COUNT(*) FROM `".static::$_db_name."`.`".static::$_table_name."`";
-		$resultSet = $database->query($sql);
-		$row = $database->fetchArray($resultSet);
+		$resultSet = $conn->query($sql);
+		$row = $conn->fetchArray($resultSet);
 		return array_shift($row);
 	}
   public function save(){
@@ -60,11 +79,14 @@ trait MySQLDatabaseObject{
     return !empty( $this->$pkey ) ? $this->_update() : $this->_create();
   }
   public function delete($conn = false){
-    if (!$conn instanceof \TymFrontiers\MySQLDatabase) {
+    if (!static::$_conn) {
       self::_checkEnv ();
       global $database;
       $conn =& $database;
+    } else {
+      $conn =& static::$_conn;
     }
+
     // there must be an instance of \TymFrontiers\MySQLDatabase in the name of $database or $database on global scope
 
     $pkey = static::$_primary_key;
@@ -81,12 +103,17 @@ trait MySQLDatabaseObject{
     if (\property_exists($this,$prop) ) $this->$prop = $val;
   }
 	public function nextAutoIncrement () {
-    self::_checkEnv ();
-    global $database;
+    if (!static::$_conn) {
+      self::_checkEnv ();
+      global $database;
+      $conn =& $database;
+    } else {
+      $conn =& static::$_conn;
+    }
 
     $database_name = !empty( static::$_db_name)
       ? static::$_db_name
-      : $database->getDBname();
+      : $conn->getDBname();
     $tblname = static::$_table_name;
     if( empty($database_name) ){
       $this->errors['nextAutoIncrement'][] = [3,256,'Database name not set',__FILE__,__LINE__];
@@ -96,9 +123,9 @@ trait MySQLDatabaseObject{
 		$sql .= "FROM  INFORMATION_SCHEMA.TABLES ";
 		$sql .= "WHERE TABLE_SCHEMA ='{$database_name}' ";
 		$sql .= "AND   TABLE_NAME   = '{$tblname}' ";
-		$resultSet = $database->query($sql);
+		$resultSet = $conn->query($sql);
     if( $resultSet ){
-      $row = $database->fetchArray($resultSet);
+      $row = $conn->fetchArray($resultSet);
       return !empty($row) ? \array_shift($row) : false;
     }else{
       $this->mergeErrors();
@@ -146,14 +173,18 @@ trait MySQLDatabaseObject{
 		return $object;
 	}
 	protected function _getDbFields () {
-    self::_checkEnv ();
-    global $database;
-
-    $result = $database->query("SHOW COLUMNS FROM `".static::$_db_name."`.`".static::$_table_name."`");
+    if (!static::$_conn) {
+      self::_checkEnv ();
+      global $database;
+      $conn =& $database;
+    } else {
+      $conn =& static::$_conn;
+    }
+    $result = $conn->query("SHOW COLUMNS FROM `".static::$_db_name."`.`".static::$_table_name."`");
     if( !$result ) $this->mergeErrors();
 	  $field_names = [];
-    if ($database->numRows($result) > 0) {
-      while ($row = $database->fetchAssocArray($result)) {
+    if ($conn->numRows($result) > 0) {
+      while ($row = $conn->fetchAssocArray($result)) {
         $field_names[] = $row['Field'];
       }
     }
@@ -165,14 +196,19 @@ trait MySQLDatabaseObject{
     static::$_db_fields = $field_names;
 	}
 	public function _getFieldInfo () {
-    static::_checkEnv ();
-    global $database;
+    if (!static::$_conn) {
+      self::_checkEnv ();
+      global $database;
+      $conn =& $database;
+    } else {
+      $conn =& static::$_conn;
+    }
 
-    $result = $database->query("SELECT COLUMN_NAME AS prop, DATA_TYPE AS type, CHARACTER_MAXIMUM_LENGTH AS size FROM INFORMATION_SCHEMA.COLUMNS
+    $result = $conn->query("SELECT COLUMN_NAME AS prop, DATA_TYPE AS type, CHARACTER_MAXIMUM_LENGTH AS size FROM INFORMATION_SCHEMA.COLUMNS
     WHERE table_name = '".static::$_table_name."'");
     if( !$result ) $this->mergeErrors();
-    if ($database->numRows($result) > 0) {
-      while ($row = $database->fetchAssocArray($result)) {
+    if ($conn->numRows($result) > 0) {
+      while ($row = $conn->fetchAssocArray($result)) {
         static::$_prop_type[$row['prop']] = $row['type'];
         static::$_prop_size[$row['prop']] = (int)$row['size'];
       }
@@ -225,10 +261,14 @@ trait MySQLDatabaseObject{
 		return $clean_attributs;
 	}
 	protected function _create ($conn = false) {
-    if (!$conn instanceof \TymFrontiers\MySQLDatabase) {
-      self::_checkEnv ();
-      global $database;
-      $conn =& $database;
+    if (!static::$_conn) {
+      if (!$conn instanceof \TymFrontiers\MySQLDatabase) {
+        self::_checkEnv ();
+        global $database;
+        $conn =& $database;
+      }
+    } else {
+      $conn =& static::$_conn;
     }
     global $session;
 
@@ -259,10 +299,14 @@ trait MySQLDatabaseObject{
 		}
 	}
 	protected function _update($conn = false){
-    if (!$conn instanceof \TymFrontiers\MySQLDatabase) {
-      self::_checkEnv ();
-      global $database;
-      $conn =& $database;
+    if (!static::$_conn) {
+      if (!$conn instanceof \TymFrontiers\MySQLDatabase) {
+        self::_checkEnv ();
+        global $database;
+        $conn =& $database;
+      }
+    } else {
+      $conn =& static::$_conn;
     }
 
 		if( \property_exists(__CLASS__,'_updated') ){ $this->_updated = \date("Y-m-d H:i:s",time()); }
@@ -286,10 +330,14 @@ trait MySQLDatabaseObject{
     }
 	}
   public function mergeErrors($conn = false){
-    if (!$conn instanceof \TymFrontiers\MySQLDatabase) {
-      self::_checkEnv ();
-      global $database;
-      $conn =& $database;
+    if (!static::$_conn) {
+      if (!$conn instanceof \TymFrontiers\MySQLDatabase) {
+        self::_checkEnv ();
+        global $database;
+        $conn =& $database;
+      }
+    } else {
+      $conn =& static::$_conn;
     }
 
     $errors = (new InstanceError($conn,true))->get('query');
@@ -312,7 +360,7 @@ trait MySQLDatabaseObject{
   }
   private static function _checkEnv(){
     global $database;
-    if ( !$database instanceof \TymFrontiers\MySQLDatabase ) {
+    if (!static::$_conn && !$database instanceof \TymFrontiers\MySQLDatabase ) {
       if(
         !\defined("MYSQL_BASE_DB") ||
         !\defined("MYSQL_SERVER") ||
