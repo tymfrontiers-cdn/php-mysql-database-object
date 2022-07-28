@@ -1,7 +1,8 @@
 <?php
 # *Note this might not work well with classes that has compulsory iniitialization parameters
 namespace TymFrontiers\Helper;
-use \TymFrontiers\InstanceError;
+use \TymFrontiers\InstanceError,
+    \TymFrontiers\MySQLDatabase;
 
 trait MySQLDatabaseObject{
   public $empty_prop = [];
@@ -16,16 +17,11 @@ trait MySQLDatabaseObject{
 	}
   public function setConnection (\TymFrontiers\MySQLDatabase $conn) {
     static::$_conn = $conn;
+    static::$_db_name = $conn->getDatabase();
   }
 	public static function findBySql (string $sql) {
-    if (!static::$_conn) {
-      self::_checkEnv ();
-      global $database;
-      $conn =& $database;
-    } else {
-      $conn =& static::$_conn;
-    }
-    $conn = static::$_conn ? static::$_conn : $database;
+    static::_checkConn ();
+    $conn =& static::$_conn;
     $sql = \str_replace([':database:',':db:'],static::$_db_name,$sql);
     $sql = \str_replace([':table:',':tbl:'],static::$_table_name,$sql);
     $sql = \str_replace([':pkey:',':primary_key:'],static::$_primary_key,$sql);
@@ -44,16 +40,11 @@ trait MySQLDatabaseObject{
   public static function databaseName () { return static::$_db_name; }
   public static function tableFields () { return static::$_db_fields; }
   public static function valExist( string $val, string $field_name='username'){
-    if (!static::$_conn) {
-      self::_checkEnv ();
-      global $database;
-      $conn =& $database;
-    } else {
-      $conn =& static::$_conn;
-    }
+    static::_checkConn ();
+    $conn =& static::$_conn;
 
-		$val = $database->escapeValue($val);
-		$field_name = $database->escapeValue($field_name);
+		$val = $conn->escapeValue($val);
+		$field_name = $conn->escapeValue($field_name);
 		$sql = "SELECT * FROM :db:.:tbl: ";
 		$sql .= " WHERE `{$field_name}` = '{$val}' ";
 		$sql .= "LIMIT 1";
@@ -61,13 +52,8 @@ trait MySQLDatabaseObject{
 		return !empty($result_array);
 	}
   public static function 	countAll(){
-    if (!static::$_conn) {
-      self::_checkEnv ();
-      global $database;
-      $conn =& $database;
-    } else {
-      $conn =& static::$_conn;
-    }
+    static::_checkConn ();
+    $conn =& static::$_conn;
 
 		$sql = "SELECT COUNT(*) FROM `".static::$_db_name."`.`".static::$_table_name."`";
 		$resultSet = $conn->query($sql);
@@ -79,21 +65,14 @@ trait MySQLDatabaseObject{
     return !empty( $this->$pkey ) ? $this->_update() : $this->_create();
   }
   public function delete($conn = false){
-    if (!static::$_conn) {
-      self::_checkEnv ();
-      global $database;
-      $conn =& $database;
-    } else {
-      $conn =& static::$_conn;
-    }
-
-    // there must be an instance of \TymFrontiers\MySQLDatabase in the name of $database or $database on global scope
+    static::_checkConn ();
+    $conn =& static::$_conn;
 
     $pkey = static::$_primary_key;
 		$sql = "DELETE FROM `".static::$_db_name."`.`".static::$_table_name."`";
 		$sql .= " WHERE {$pkey} = '{$conn->escapeValue($this->$pkey)}' ";
 		$sql .= " LIMIT 1";
-		if( $conn->query($sql) ){
+		if( static::$_conn->query($sql) ){
       return ($conn->affectedRows() == 1) ? true : false;
     }else{
       $this->mergeErrors($conn);
@@ -103,17 +82,12 @@ trait MySQLDatabaseObject{
     if (\property_exists($this,$prop) ) $this->$prop = $val;
   }
 	public function nextAutoIncrement () {
-    if (!static::$_conn) {
-      self::_checkEnv ();
-      global $database;
-      $conn =& $database;
-    } else {
-      $conn =& static::$_conn;
-    }
+    static::_checkConn ();
+    $conn =& static::$_conn;
 
     $database_name = !empty( static::$_db_name)
       ? static::$_db_name
-      : $conn->getDBname();
+      : $conn->getDatabase();
     $tblname = static::$_table_name;
     if( empty($database_name) ){
       $this->errors['nextAutoIncrement'][] = [3,256,'Database name not set',__FILE__,__LINE__];
@@ -167,19 +141,13 @@ trait MySQLDatabaseObject{
       if ( !\is_int($attribute) ) {
         $object->$attribute = $value;
       }
-			// if($object->_hasAttribute($attribute)){
-			// }
 		}
 		return $object;
 	}
 	protected function _getDbFields () {
-    if (!static::$_conn) {
-      self::_checkEnv ();
-      global $database;
-      $conn =& $database;
-    } else {
-      $conn =& static::$_conn;
-    }
+    static::_checkConn ();
+    $conn =& static::$_conn;
+
     $result = $conn->query("SHOW COLUMNS FROM `".static::$_db_name."`.`".static::$_table_name."`");
     if( !$result ) $this->mergeErrors();
 	  $field_names = [];
@@ -196,13 +164,8 @@ trait MySQLDatabaseObject{
     static::$_db_fields = $field_names;
 	}
 	public function _getFieldInfo () {
-    if (!static::$_conn) {
-      self::_checkEnv ();
-      global $database;
-      $conn =& $database;
-    } else {
-      $conn =& static::$_conn;
-    }
+    static::_checkConn ();
+    $conn =& static::$_conn;
 
     $result = $conn->query("SELECT COLUMN_NAME AS prop, DATA_TYPE AS type, CHARACTER_MAXIMUM_LENGTH AS size FROM INFORMATION_SCHEMA.COLUMNS
     WHERE table_name = '".static::$_table_name."'");
@@ -230,8 +193,8 @@ trait MySQLDatabaseObject{
 		return $attributes;
 	}
 	protected function _sanitizedAttributes () {
-    self::_checkEnv ();
-    global $database;
+    static::_checkConn ();
+    $conn =& static::$_conn;
 
     $clean_attributs = [];
     $this->_getFieldInfo();
@@ -251,25 +214,18 @@ trait MySQLDatabaseObject{
           if ($this->isEmpty($key, $value)) {
             $clean_attributs[$key] = "";
           } else {
-            $clean_attributs[$key] = $database->escapeValue($value);
+            $clean_attributs[$key] = $conn->escapeValue($value);
           }
         }
       } else {
-        if (!empty($value)) $clean_attributs[$key] = $database->escapeValue($value);
+        if (!empty($value)) $clean_attributs[$key] = $conn->escapeValue($value);
       }
 		}
 		return $clean_attributs;
 	}
-	protected function _create ($conn = false) {
-    if (!static::$_conn) {
-      if (!$conn instanceof \TymFrontiers\MySQLDatabase) {
-        self::_checkEnv ();
-        global $database;
-        $conn =& $database;
-      }
-    } else {
-      $conn =& static::$_conn;
-    }
+	protected function _create () {
+    static::_checkConn ();
+    $conn =& static::$_conn;
     global $session;
 
 		if( property_exists(__CLASS__, '_created'))	$this->_created = \date("Y-m-d H:i:s",time());
@@ -298,16 +254,9 @@ trait MySQLDatabaseObject{
 			return false;
 		}
 	}
-	protected function _update($conn = false){
-    if (!static::$_conn) {
-      if (!$conn instanceof \TymFrontiers\MySQLDatabase) {
-        self::_checkEnv ();
-        global $database;
-        $conn =& $database;
-      }
-    } else {
-      $conn =& static::$_conn;
-    }
+	protected function _update(){
+    static::_checkConn ();
+    $conn =& static::$_conn;
 
 		if( \property_exists(__CLASS__,'_updated') ){ $this->_updated = \date("Y-m-d H:i:s",time()); }
     $pkey = static::$_primary_key;
@@ -329,16 +278,9 @@ trait MySQLDatabaseObject{
       return false;
     }
 	}
-  public function mergeErrors($conn = false){
-    if (!static::$_conn) {
-      if (!$conn instanceof \TymFrontiers\MySQLDatabase) {
-        self::_checkEnv ();
-        global $database;
-        $conn =& $database;
-      }
-    } else {
-      $conn =& static::$_conn;
-    }
+  public function mergeErrors(){
+    static::_checkConn ();
+    $conn =& static::$_conn;
 
     $errors = (new InstanceError($conn,true))->get('query');
     if( $errors ){
@@ -359,19 +301,41 @@ trait MySQLDatabaseObject{
     }
   }
   private static function _checkEnv(){
+    return static::_checkConn();
+    // global $database;
+    // if (!static::$_conn && !$database instanceof \TymFrontiers\MySQLDatabase ) {
+    //   if(
+    //     !\defined("MYSQL_BASE_DB") ||
+    //     !\defined("MYSQL_SERVER") ||
+    //     !\defined("MYSQL_GUEST_USERNAME") ||
+    //     !\defined("MYSQL_GUEST_PASS")
+    //   ){
+    //     throw new \Exception("Required defination(s)[MYSQL_BASE_DB, MYSQL_SERVER, MYSQL_GUEST_USERNAME, MYSQL_GUEST_PASS] not [correctly] defined.", 1);
+    //   }
+    //   // check if guest is logged in
+    //   $GLOBALS['database'] = new \TymFrontiers\MySQLDatabase(MYSQL_SERVER, MYSQL_GUEST_USERNAME, MYSQL_GUEST_PASS, self::$_db_name);
+    // }
+  }
+  private static function _checkConn ():bool {
     global $database;
-    if (!static::$_conn && !$database instanceof \TymFrontiers\MySQLDatabase ) {
-      if(
-        !\defined("MYSQL_BASE_DB") ||
-        !\defined("MYSQL_SERVER") ||
-        !\defined("MYSQL_GUEST_USERNAME") ||
-        !\defined("MYSQL_GUEST_PASS")
-      ){
-        throw new \Exception("Required defination(s)[MYSQL_BASE_DB, MYSQL_SERVER, MYSQL_GUEST_USERNAME, MYSQL_GUEST_PASS] not [correctly] defined.", 1);
-      }
-      // check if guest is logged in
-      $GLOBALS['database'] = new \TymFrontiers\MySQLDatabase(MYSQL_SERVER, MYSQL_GUEST_USERNAME, MYSQL_GUEST_PASS, self::$_db_name);
+    if (static::$_conn && static::$_conn instanceof MySQLDatabase) {
+      return true;
+    } else if ($database instanceof MySQLDatabase) {
+      if (empty(static::$_db_name)) static::$_db_name = $database->getDatabase();
+      if (!static::$_conn) static::$_conn = $database;
+      return true;
+    } else {
+      throw new \Exception("No database connection available.", 1);
     }
+    return true;
+  }
+  private static function _setConn (MySQLDatabase $conn):bool {
+    static::$_conn = $conn;
+    static::$_db_name = $conn->getDatabase();
+    return true;
+  }
+  public function conn ():MySQLDatabase {
+    return static::$_conn;
   }
 
 }
