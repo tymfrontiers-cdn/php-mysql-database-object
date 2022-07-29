@@ -7,6 +7,8 @@ use \TymFrontiers\InstanceError,
 trait MySQLDatabaseObject{
   public $empty_prop = [];
   private static $_conn = false;
+  protected static $_prop_type = [];
+  protected static $_prop_size = [];
 
   public static function findAll(){
     return static::findBySql("SELECT * FROM `:db:`.`:tbl:`");
@@ -17,7 +19,7 @@ trait MySQLDatabaseObject{
 	}
   public function setConnection (\TymFrontiers\MySQLDatabase $conn) {
     static::$_conn = $conn;
-    static::$_db_name = $conn->getDatabase();
+    if (empty(static::$_db_name)) static::$_db_name = $conn->getDatabase();
   }
 	public static function findBySql (string $sql) {
     static::_checkConn ();
