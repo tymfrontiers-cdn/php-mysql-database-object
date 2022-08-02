@@ -17,12 +17,12 @@ trait MySQLDatabaseObject{
 		$result_array = static::findBySql("SELECT * FROM `:db:`.`:tbl:` WHERE :pkey:='{$id}' LIMIT 1");
 		return !empty($result_array) ? array_shift($result_array) : false;
 	}
-  public function setConnection (\TymFrontiers\MySQLDatabase $conn) {
+  public function setConnection (MySQLDatabase $conn) {
     static::$_conn = $conn;
     if (empty(static::$_db_name)) static::$_db_name = $conn->getDatabase();
   }
 	public static function findBySql (string $sql) {
-    static::_checkConn ();
+    if (!static::_checkConn()) throw new \Exception("No database connection available", 1);
     $conn =& static::$_conn;
     $sql = \str_replace([':database:',':db:'],static::$_db_name,$sql);
     $sql = \str_replace([':table:',':tbl:'],static::$_table_name,$sql);
@@ -42,7 +42,7 @@ trait MySQLDatabaseObject{
   public static function databaseName () { return static::$_db_name; }
   public static function tableFields () { return static::$_db_fields; }
   public static function valExist( string $val, string $field_name='username'){
-    static::_checkConn ();
+    if (!static::_checkConn()) throw new \Exception("No database connection available", 1);
     $conn =& static::$_conn;
 
 		$val = $conn->escapeValue($val);
@@ -54,7 +54,7 @@ trait MySQLDatabaseObject{
 		return !empty($result_array);
 	}
   public static function 	countAll(){
-    static::_checkConn ();
+    if (!static::_checkConn()) throw new \Exception("No database connection available", 1);
     $conn =& static::$_conn;
 
 		$sql = "SELECT COUNT(*) FROM `".static::$_db_name."`.`".static::$_table_name."`";
@@ -67,7 +67,7 @@ trait MySQLDatabaseObject{
     return !empty( $this->$pkey ) ? $this->_update() : $this->_create();
   }
   public function delete($conn = false){
-    static::_checkConn ();
+    if (!static::_checkConn()) throw new \Exception("No database connection available", 1);
     $conn =& static::$_conn;
 
     $pkey = static::$_primary_key;
@@ -84,7 +84,7 @@ trait MySQLDatabaseObject{
     if (\property_exists($this,$prop) ) $this->$prop = $val;
   }
 	public function nextAutoIncrement () {
-    static::_checkConn ();
+    if (!static::_checkConn()) throw new \Exception("No database connection available", 1);
     $conn =& static::$_conn;
 
     $database_name = !empty( static::$_db_name)
@@ -147,9 +147,8 @@ trait MySQLDatabaseObject{
 		return $object;
 	}
 	protected function _getDbFields () {
-    static::_checkConn ();
+    if (!static::_checkConn()) throw new \Exception("No database connection available", 1);
     $conn =& static::$_conn;
-
     $result = $conn->query("SHOW COLUMNS FROM `".static::$_db_name."`.`".static::$_table_name."`");
     if( !$result ) $this->mergeErrors();
 	  $field_names = [];
@@ -166,7 +165,7 @@ trait MySQLDatabaseObject{
     static::$_db_fields = $field_names;
 	}
 	public function _getFieldInfo () {
-    static::_checkConn ();
+    if (!static::_checkConn()) throw new \Exception("No database connection available", 1);
     $conn =& static::$_conn;
 
     $result = $conn->query("SELECT COLUMN_NAME AS prop, DATA_TYPE AS type, CHARACTER_MAXIMUM_LENGTH AS size FROM INFORMATION_SCHEMA.COLUMNS
@@ -195,7 +194,7 @@ trait MySQLDatabaseObject{
 		return $attributes;
 	}
 	protected function _sanitizedAttributes () {
-    static::_checkConn ();
+    if (!static::_checkConn()) throw new \Exception("No database connection available", 1);
     $conn =& static::$_conn;
 
     $clean_attributs = [];
@@ -226,7 +225,7 @@ trait MySQLDatabaseObject{
 		return $clean_attributs;
 	}
 	protected function _create () {
-    static::_checkConn ();
+    if (!static::_checkConn()) throw new \Exception("No database connection available", 1);
     $conn =& static::$_conn;
     global $session;
 
@@ -257,7 +256,7 @@ trait MySQLDatabaseObject{
 		}
 	}
 	protected function _update(){
-    static::_checkConn ();
+    if (!static::_checkConn()) throw new \Exception("No database connection available", 1);
     $conn =& static::$_conn;
 
 		if( \property_exists(__CLASS__,'_updated') ){ $this->_updated = \date("Y-m-d H:i:s",time()); }
@@ -281,7 +280,7 @@ trait MySQLDatabaseObject{
     }
 	}
   public function mergeErrors(){
-    static::_checkConn ();
+    if (!static::_checkConn()) throw new \Exception("No database connection available", 1);
     $conn =& static::$_conn;
 
     $errors = (new InstanceError($conn,true))->get('query');
@@ -302,38 +301,23 @@ trait MySQLDatabaseObject{
       }
     }
   }
-  private static function _checkEnv(){
-    return static::_checkConn();
-    // global $database;
-    // if (!static::$_conn && !$database instanceof \TymFrontiers\MySQLDatabase ) {
-    //   if(
-    //     !\defined("MYSQL_BASE_DB") ||
-    //     !\defined("MYSQL_SERVER") ||
-    //     !\defined("MYSQL_GUEST_USERNAME") ||
-    //     !\defined("MYSQL_GUEST_PASS")
-    //   ){
-    //     throw new \Exception("Required defination(s)[MYSQL_BASE_DB, MYSQL_SERVER, MYSQL_GUEST_USERNAME, MYSQL_GUEST_PASS] not [correctly] defined.", 1);
-    //   }
-    //   // check if guest is logged in
-    //   $GLOBALS['database'] = new \TymFrontiers\MySQLDatabase(MYSQL_SERVER, MYSQL_GUEST_USERNAME, MYSQL_GUEST_PASS, self::$_db_name);
-    // }
-  }
+  private static function _checkEnv(){ return static::_checkConn(); }
   private static function _checkConn ():bool {
     global $database;
     if (static::$_conn && static::$_conn instanceof MySQLDatabase) {
       return true;
     } else if ($database instanceof MySQLDatabase) {
-      if (empty(static::$_db_name)) static::$_db_name = $database->getDatabase();
-      if (!static::$_conn) static::$_conn = $database;
-      return true;
+      return static::_setConn($database);
     } else {
       throw new \Exception("No database connection available.", 1);
     }
     return true;
   }
   private static function _setConn (MySQLDatabase $conn):bool {
-    static::$_conn = $conn;
-    static::$_db_name = $conn->getDatabase();
+    static::$_conn =& $conn;
+    if (empty(static::$_db_name) && !empty($conn->getDatabase())) {
+      static::$_db_name = static::$_conn->getDatabase();
+    }
     return true;
   }
   public function conn ():MySQLDatabase {
