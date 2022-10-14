@@ -138,7 +138,7 @@ trait MySQLDatabaseObject{
   private static function _instantiate ($record) {
     $class_name = \get_called_class();
 		// $object = new $class_name();
-		$object = new $class_name (static::$_db_name,static::$_table_name,static::$_primary_key);
+		$object = new $class_name (static::$_db_name,static::$_table_name,static::$_primary_key, $class_name::$_conn);
 		foreach ($record as $attribute=>$value) {
       if ( !\is_int($attribute) ) {
         $object->$attribute = $value;
@@ -304,19 +304,21 @@ trait MySQLDatabaseObject{
   private static function _checkEnv(){ return static::_checkConn(); }
   private static function _checkConn ():bool {
     global $database;
-    if (static::$_conn && static::$_conn instanceof MySQLDatabase) {
+    if (self::$_conn && self::$_conn instanceof MySQLDatabase) {
       return true;
     } else if ($database instanceof MySQLDatabase) {
-      return static::_setConn($database);
+      return self::_setConn($database);
     } else {
       throw new \Exception("No database connection available.", 1);
     }
     return true;
   }
-  private static function _setConn (MySQLDatabase $conn):bool {
-    static::$_conn =& $conn;
-    if (empty(static::$_db_name) && !empty($conn->getDatabase())) {
-      static::$_db_name = static::$_conn->getDatabase();
+  private static function _setConn (MySQLDatabase $conn, bool $force_set = false):bool {
+    if (!self::$_conn instanceof MySQLDatabase || $force_set) {
+      self::$_conn =& $conn;
+    }
+    if (empty(self::$_db_name) && !empty($conn->getDatabase())) {
+      self::$_db_name = self::$_conn->getDatabase();
     }
     return true;
   }
