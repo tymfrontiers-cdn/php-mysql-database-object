@@ -248,7 +248,7 @@ trait MySQLDatabaseObject{
 		$sql .= join("', '", array_values($attributes));
 		$sql .= "')";
 		if( $conn->query($sql) ){
-			if( \property_exists(__CLASS__,'id') ) $this->id = $conn->insertId();
+			if( \property_exists(__CLASS__,'id') && \in_array(\strtoupper(static::$_prop_type["id"]), ["BIT","TINYINT","BOOLEAN","SMALLINT","MEDIUMINT","INT","INTEGER","BIGINT", "FLOAT","DOUBLE","DECIMAL","DEC"]) ) $this->id = $conn->insertId();
 			return true;
 		}else{
       $this->mergeErrors($conn);
