@@ -124,7 +124,7 @@ trait MySQLDatabaseObject{
           return empty( (float)$value);
           break;
         case \in_array(\strtoupper(static::$_prop_type[$prop]),['DATE','DATETIME','TIMESTAMP','TIME','YEAR']): // date/time
-          return !(bool) \strtotime($value);
+          return @ !(bool) \strtotime($value);
           break;
         case \in_array(\strtoupper(static::$_prop_type[$prop]),["CHAR", "VARCHAR", "BLOB", "TEXT", "TINYBLOB", "TINYTEXT", "MEDIUMBLOB", "MEDIUMTEXT", "LONGBLOB", "LONGTEXT", "ENUM"]): // text
           return \is_bool($value) ? true : empty($value);
