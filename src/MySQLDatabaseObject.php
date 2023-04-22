@@ -200,26 +200,28 @@ trait MySQLDatabaseObject{
     $clean_attributs = [];
     $this->_getFieldInfo();
 		foreach ($this->_attributes() as $key => $value) {
-      if (\in_array(\strtoupper(static::$_prop_type[$key]),["BIT", "TINYINT", "BOOLEAN", "SMALLINT"]) && (int)$value < 1) {
-        $clean_attributs[$key] = (bool)$value ? 1 : 0;
-      } else if(\in_array($key, $this->empty_prop)) {
-        // get empty type
-        if (
-          \in_array(\strtoupper(static::$_prop_type[$key]), ["BIT","TINYINT","BOOLEAN","SMALLINT","MEDIUMINT","INT","INTEGER","BIGINT", "FLOAT","DOUBLE","DECIMAL","DEC"])
-          && $this->isEmpty($key, $value)
-          ) {
-          $clean_attributs[$key] = 0;
-        } else if(\in_array($key, ['DATE','DATETIME','TIMESTAMP','TIME','YEAR']) && $this->isEmpty($key, $value)) {
-          $clean_attributs[$key] = NULL;
-        } else {
-          if ($this->isEmpty($key, $value)) {
-            $clean_attributs[$key] = "";
+      if (!empty(static::$_prop_type[$key])) {
+        if (\in_array(\strtoupper(static::$_prop_type[$key]),["BIT", "TINYINT", "BOOLEAN", "SMALLINT"]) && (int)$value < 1) {
+          $clean_attributs[$key] = (bool)$value ? 1 : 0;
+        } else if(\in_array($key, $this->empty_prop)) {
+          // get empty type
+          if (
+            \in_array(\strtoupper(static::$_prop_type[$key]), ["BIT","TINYINT","BOOLEAN","SMALLINT","MEDIUMINT","INT","INTEGER","BIGINT", "FLOAT","DOUBLE","DECIMAL","DEC"])
+            && $this->isEmpty($key, $value)
+            ) {
+            $clean_attributs[$key] = 0;
+          } else if(\in_array($key, ['DATE','DATETIME','TIMESTAMP','TIME','YEAR']) && $this->isEmpty($key, $value)) {
+            $clean_attributs[$key] = NULL;
           } else {
-            $clean_attributs[$key] = $conn->escapeValue($value);
+            if ($this->isEmpty($key, $value)) {
+              $clean_attributs[$key] = "";
+            } else {
+              $clean_attributs[$key] = $conn->escapeValue($value);
+            }
           }
+        } else {
+          if (!empty($value)) $clean_attributs[$key] = $conn->escapeValue($value);
         }
-      } else {
-        if (!empty($value)) $clean_attributs[$key] = $conn->escapeValue($value);
       }
 		}
 		return $clean_attributs;
