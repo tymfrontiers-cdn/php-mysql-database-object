@@ -66,20 +66,6 @@ trait MySQLDatabaseObject{
     $pkey = static::$_primary_key;
     return !empty( $this->$pkey ) ? $this->_update() : $this->_create();
   }
-  public function delete($conn = false){
-    if (!static::_checkConn()) throw new \Exception("No database connection available", 1);
-    $conn =& static::$_conn;
-
-    $pkey = static::$_primary_key;
-		$sql = "DELETE FROM `".static::$_db_name."`.`".static::$_table_name."`";
-		$sql .= " WHERE {$pkey} = '{$conn->escapeValue($this->$pkey)}' ";
-		$sql .= " LIMIT 1";
-		if( static::$_conn->query($sql) ){
-      return ($conn->affectedRows() == 1) ? true : false;
-    }else{
-      $this->mergeErrors($conn);
-    }
-	}
   public function setProp (string $prop, $val) {
     if (\property_exists($this,$prop) ) $this->$prop = $val;
   }
@@ -281,6 +267,21 @@ trait MySQLDatabaseObject{
       return false;
     }
 	}
+  protected function _delete ():bool {
+    if (!static::_checkConn()) throw new \Exception("No database connection available", 1);
+    $conn =& static::$_conn;
+
+    $pkey = static::$_primary_key;
+		$sql = "DELETE FROM `".static::$_db_name."`.`".static::$_table_name."`";
+		$sql .= " WHERE {$pkey} = '{$conn->escapeValue($this->$pkey)}' ";
+		$sql .= " LIMIT 1";
+		if( static::$_conn->query($sql) ){
+      return ($conn->affectedRows() == 1) ? true : false;
+    }else{
+      $this->mergeErrors($conn);
+    }
+	}
+
   public function mergeErrors(){
     if (!static::_checkConn()) throw new \Exception("No database connection available", 1);
     $conn =& static::$_conn;
