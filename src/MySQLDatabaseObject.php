@@ -306,22 +306,24 @@ trait MySQLDatabaseObject{
   }
   private static function _checkEnv(){ return static::_checkConn(); }
   private static function _checkConn ():bool {
-    global $database;
-    if (self::$_conn && self::$_conn instanceof MySQLDatabase) {
+    if (static::$_conn && static::$_conn instanceof MySQLDatabase) {
       return true;
-    } else if ($database instanceof MySQLDatabase) {
-      return self::_setConn($database);
     } else {
-      throw new \Exception("No database connection available.", 1);
-    }
+      global $database;
+      if ($database instanceof MySQLDatabase) {
+        return static::_setConn($database);
+      } else {
+        throw new \Exception("No database connection available.", 1);
+      }
+    } 
     return true;
   }
   private static function _setConn (MySQLDatabase $conn, bool $force_set = false):bool {
-    if (!self::$_conn instanceof MySQLDatabase || $force_set) {
-      self::$_conn =& $conn;
+    if (!static::$_conn instanceof MySQLDatabase || $force_set) {
+      static::$_conn =& $conn;
     }
-    if (empty(self::$_db_name) && !empty($conn->getDatabase())) {
-      self::$_db_name = self::$_conn->getDatabase();
+    if (empty(static::$_db_name) && !empty($conn->getDatabase())) {
+      static::$_db_name = static::$_conn->getDatabase();
     }
     return true;
   }
