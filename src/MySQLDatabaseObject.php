@@ -219,7 +219,7 @@ trait MySQLDatabaseObject{
 
 		if( property_exists(__CLASS__, '_created'))	$this->_created = \date("Y-m-d H:i:s",time());
 		if( property_exists(__CLASS__, '_updated'))	$this->_updated = \date("Y-m-d H:i:s",time());
-		if( property_exists(__CLASS__, '_author')){
+		if( property_exists(__CLASS__, '_author') && empty($this->_author)){
       if( !($session instanceof \TymFrontiers\Session) ){
         $this->errors['_create'][] = [3,256,'There must be an instance of TymFrontiers\Session in the name of \'$session\' on global scope',__FILE__,__LINE__];
         return false;
