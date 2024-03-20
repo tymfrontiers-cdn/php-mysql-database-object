@@ -94,7 +94,12 @@ trait MySQLDatabaseObject{
     }
     return false;
 	}
-	public function created () { return property_exists(__CLASS__,'_created') ? $this->_created : null; }
+	public function created (string|null $date = null) {
+    if ($date && \strtotime($date)) {
+      $this->_created = $date;
+    }
+    return property_exists(__CLASS__,'_created') ? $this->_created : null;
+  }
 	public function updated () { return property_exists(__CLASS__,'_updated') ? $this->_updated : null; }
 	public function author () { return property_exists(__CLASS__,'_author') ? $this->_author : null; }
 
@@ -217,7 +222,7 @@ trait MySQLDatabaseObject{
     $conn =& static::$_conn;
     global $session;
 
-		if( property_exists(__CLASS__, '_created'))	$this->_created = \date("Y-m-d H:i:s",time());
+		if( property_exists(__CLASS__, '_created') && empty($this->_created))	$this->_created = \date("Y-m-d H:i:s",time());
 		if( property_exists(__CLASS__, '_updated'))	$this->_updated = \date("Y-m-d H:i:s",time());
 		if( property_exists(__CLASS__, '_author') && empty($this->_author)){
       if( !($session instanceof \TymFrontiers\Session) ){
