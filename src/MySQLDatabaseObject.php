@@ -109,7 +109,7 @@ trait MySQLDatabaseObject{
     if (\array_key_exists($prop,static::$_prop_type)) {
       switch ($prop) {
         case \in_array(\strtoupper(static::$_prop_type[$prop]),["BIT","TINYINT","BOOLEAN","SMALLINT","MEDIUMINT","INT","INTEGER","BIGINT"]):
-          return \strlen($value) == 0 ? true : (\is_bool($value) ? false : empty((int)$value));
+          return @ \strlen($value) == 0 ? true : (\is_bool($value) ? false : empty((int)$value));
           break;
         case \in_array(\strtoupper(static::$_prop_type[$prop]),["FLOAT","DOUBLE","DECIMAL","DEC"]): // decimal
           return empty( (float)$value);
