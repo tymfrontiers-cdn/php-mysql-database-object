@@ -201,7 +201,7 @@ trait MySQLDatabaseObject{
             && $this->isEmpty($key, $value)
             ) {
             $clean_attributs[$key] = 0;
-          } else if(\in_array($key, ['DATE','DATETIME','TIMESTAMP','TIME','YEAR']) && $this->isEmpty($key, $value)) {
+          } else if(\in_array(\strtoupper(static::$_prop_type[$key]), ['DATE','DATETIME','TIMESTAMP','TIME','YEAR', "LONGTEXT", "JSON", "VARCHAR"]) && $this->isEmpty($key, $value)) {
             $clean_attributs[$key] = NULL;
           } else {
             if ($this->isEmpty($key, $value)) {
@@ -257,9 +257,13 @@ trait MySQLDatabaseObject{
 		$attributes = $this->_sanitizedAttributes();
 		$attribute_pairs = [];
 		foreach ($attributes as $key => $value) {
-      $attribute_pairs[] = !\in_array(\strtoupper(static::$_prop_type[$key]),['DATE','DATETIME','TIMESTAMP','TIME','YEAR'])
-      ? "`{$key}`='{$value}'"
-      : "`{$key}`=". (!empty($value) ? "'{$value}'" : "NULL");
+      if (\is_null($value)) {
+        $attribute_pairs[] = "`{$key}` = NULL";
+      } else if (!\in_array(\strtoupper(static::$_prop_type[$key]),['DATE','DATETIME','TIMESTAMP','TIME','YEAR'])) {
+        $attribute_pairs[] = "`{$key}`='{$value}'";
+      } else {
+        $attribute_pairs[] = "`{$key}`=". (!empty($value) ? "'{$value}'" : "");
+      }
 		}
 		$sql = "UPDATE `".static::$_db_name."`.`".static::$_table_name."` SET ";
 		$sql .= join(", ",$attribute_pairs);
